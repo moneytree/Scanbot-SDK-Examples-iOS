@@ -9,6 +9,6 @@
 #import "DemoViewController.h"
 #import <ScanbotSDK/ScanbotSDK.h>
 
-@interface PayformDemoViewController : DemoViewController
+@interface LowLevelViewController : DemoViewController
 
 @end

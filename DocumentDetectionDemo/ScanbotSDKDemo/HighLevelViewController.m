@@ -6,11 +6,11 @@
 //  Copyright (c) 2015 doo GmbH. All rights reserved.
 //
 
-#import "DocumentDemoViewController.h"
+#import "HighLevelViewController.h"
 #import "TextViewController.h"
 #import "PDFViewController.h"
 
-@interface DocumentDemoViewController ()
+@interface HighLevelViewController ()
 @property (strong, nonatomic) SBSDKImageStorage *imageStorage;
 @property (strong, nonatomic) IBOutlet UIButton *actionsButton;
 @property (strong, nonatomic) IBOutlet UIButton *cancelButton;
@@ -26,7 +26,7 @@
 @property (strong, nonatomic) UIButton *myShutterButton;
 @end
 
-@implementation DocumentDemoViewController
+@implementation HighLevelViewController
 
 /**
  Subclass overrides
@@ -227,7 +227,7 @@ shouldRotateInterfaceForDeviceOrientation:(UIDeviceOrientation)orientation
     if (_currentProgress != currentProgress) {
         _currentProgress.updateHandler = nil;
         _currentProgress = currentProgress;
-        __weak DocumentDemoViewController *weakSelf = self;
+        __weak HighLevelViewController *weakSelf = self;
         _currentProgress.updateHandler = ^void(SBSDKProgress *progress) {
             [weakSelf updateProgress];
         };
@@ -279,7 +279,7 @@ shouldRotateInterfaceForDeviceOrientation:(UIDeviceOrientation)orientation
     if (!self.actionController) {
         self.actionController = [[UIAlertController alloc] init];
         self.actionController.title = @"Scanbot SDK - Choose an action";
-        __weak DocumentDemoViewController *weakSelf = self;
+        __weak HighLevelViewController *weakSelf = self;
         
         [self.actionController addAction:[UIAlertAction actionWithTitle:@"PDF - No OCR"
                                                                   style:UIAlertActionStyleDefault
@@ -293,7 +293,7 @@ shouldRotateInterfaceForDeviceOrientation:(UIDeviceOrientation)orientation
         [self.actionController addAction:[UIAlertAction actionWithTitle:@"PDF - With OCR"
                                                                   style:UIAlertActionStyleDefault
                                                                 handler:^(UIAlertAction *action) {
-                                                                    DocumentDemoViewController *strongSelf = weakSelf;
+                                                                    HighLevelViewController *strongSelf = weakSelf;
                                                                     [strongSelf createOCRPDF:action];
                                                                     [strongSelf dismissViewControllerAnimated:YES
                                                                                                    completion:nil];
@@ -302,7 +302,7 @@ shouldRotateInterfaceForDeviceOrientation:(UIDeviceOrientation)orientation
         [self.actionController addAction:[UIAlertAction actionWithTitle:@"OCR text - Image storage"
                                                                   style:UIAlertActionStyleDefault
                                                                 handler:^(UIAlertAction *action) {
-                                                                    DocumentDemoViewController *strongSelf = weakSelf;
+                                                                    HighLevelViewController *strongSelf = weakSelf;
                                                                     [strongSelf performOCR:action];
                                                                     [strongSelf dismissViewControllerAnimated:YES
                                                                                                    completion:nil];
@@ -311,7 +311,7 @@ shouldRotateInterfaceForDeviceOrientation:(UIDeviceOrientation)orientation
         [self.actionController addAction:[UIAlertAction actionWithTitle:@"OCR text - Single image"
                                                                   style:UIAlertActionStyleDefault
                                                                 handler:^(UIAlertAction *action) {
-                                                                    DocumentDemoViewController *strongSelf = weakSelf;
+                                                                    HighLevelViewController *strongSelf = weakSelf;
                                                                     [strongSelf performSingleImageOCR:action];
                                                                     [strongSelf dismissViewControllerAnimated:YES
                                                                                                    completion:nil];
@@ -321,7 +321,7 @@ shouldRotateInterfaceForDeviceOrientation:(UIDeviceOrientation)orientation
         [self.actionController addAction:[UIAlertAction actionWithTitle:@"Page analysis - Single image"
                                                                   style:UIAlertActionStyleDefault
                                                                 handler:^(UIAlertAction *action) {
-                                                                    DocumentDemoViewController *strongSelf = weakSelf;
+                                                                    HighLevelViewController *strongSelf = weakSelf;
                                                                     [strongSelf performPageAnalysis:action];
                                                                     [strongSelf dismissViewControllerAnimated:YES
                                                                                                    completion:nil];
@@ -351,30 +351,45 @@ shouldRotateInterfaceForDeviceOrientation:(UIDeviceOrientation)orientation
     if (self.imageStorage.imageCount == 0) {
         return;
     }
-    
-    NSString *filename = @"ScanbotSDK_PDF.pdf";
-    NSURL *pdfURL = [SBSDKImageStorage applicationDocumentsFolderURL];
-    pdfURL = [pdfURL URLByAppendingPathComponent:filename];
-    
-    self.currentProgress = [SBSDKPDFRenderer renderImageStorage:self.imageStorage
-                                               copyImageStorage:YES
-                                                       indexSet:nil
-                                                   withPageSize:SBSDKPDFRendererPageSizeFromImage
-                                                         output:pdfURL
-                                              completionHandler:^(BOOL finished, NSError *error, NSDictionary *resultInfo)
-    {
-        if (finished && error == nil) {
-            NSURL *outputURL = resultInfo[SBSDKResultInfoDestinationFileURLKey];
-            PDFViewController *pdfController = [PDFViewController pdfControllerWithURL:outputURL];
-            [self.navigationController pushViewController:pdfController animated:YES];
-        } else {
-            NSLog(@"%@", error);
-        }
-        self.currentProgress = nil;
-        [self updateUI];
-    }];
-    
-    [self updateUI];
+
+    dispatch_group_t group = dispatch_group_create();
+
+    for (NSURL *imageURL in self.imageStorage.imageURLs) {
+      dispatch_group_enter(group);
+      [SBSDKImageProcessor
+        filterImage:imageURL
+        filter:SBSDKImageFilterTypeBinarized
+        outputImageURL:imageURL
+        completion:^(BOOL finished, NSError *error, NSDictionary *resultInfo) {
+          dispatch_group_leave(group);
+        }];
+    }
+
+    dispatch_group_notify(group, dispatch_get_main_queue(),^{
+      NSString *filename = @"ScanbotSDK_PDF.pdf";
+      NSURL *pdfURL = [SBSDKImageStorage applicationDocumentsFolderURL];
+      pdfURL = [pdfURL URLByAppendingPathComponent:filename];
+
+      self.currentProgress = [SBSDKPDFRenderer
+        renderImageStorage:self.imageStorage
+        copyImageStorage:YES
+        indexSet:nil
+        withPageSize:SBSDKPDFRendererPageSizeFromImage
+        output:pdfURL
+        completionHandler:^(BOOL finished, NSError *error, NSDictionary *resultInfo) {
+          if (finished && error == nil) {
+              NSURL *outputURL = resultInfo[SBSDKResultInfoDestinationFileURLKey];
+              PDFViewController *pdfController = [PDFViewController pdfControllerWithURL:outputURL];
+              [self.navigationController pushViewController:pdfController animated:YES];
+          } else {
+              NSLog(@"%@", error);
+          }
+          self.currentProgress = nil;
+          [self updateUI];
+      }];
+
+      [self updateUI];
+    });
 }
 
 - (IBAction)performOCR:(id)sender {

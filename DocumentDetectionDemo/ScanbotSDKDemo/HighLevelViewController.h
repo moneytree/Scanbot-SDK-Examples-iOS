@@ -10,6 +10,6 @@
 #import <ScanbotSDK/ScanbotSDK.h>
 #import "DemoViewController.h"
 
-@interface DocumentDemoViewController : DemoViewController<SBSDKScannerViewControllerDelegate>
+@interface HighLevelViewController : DemoViewController<SBSDKScannerViewControllerDelegate>
 
 @end

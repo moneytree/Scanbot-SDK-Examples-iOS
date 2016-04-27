@@ -17,9 +17,9 @@
 
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
- 
-//    [ScanbotSDK setLoggingEnabled:NO];
-    return YES;
+  [ScanbotSDK setLicense:@""];
+  [ScanbotSDK setLoggingEnabled:YES];
+  return YES;
 }
 
 - (void)applicationWillResignActive:(UIApplication *)application {

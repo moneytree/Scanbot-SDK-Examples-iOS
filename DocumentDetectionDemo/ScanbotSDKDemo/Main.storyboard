@@ -43,91 +43,47 @@
                                 <fontDescription key="fontDescription" type="system" pointSize="12"/>
                                 <nil key="highlightedColor"/>
                             </label>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Select a Demo:" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="f4k-TS-bx7">
-                                <rect key="frame" x="192" y="158" width="217" height="18"/>
-                                <fontDescription key="fontDescription" type="system" weight="light" pointSize="15"/>
-                                <nil key="highlightedColor"/>
-                            </label>
-                            <button opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" horizontalCompressionResistancePriority="751" verticalCompressionResistancePriority="751" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="adM-sR-Tdg">
-                                <rect key="frame" x="192" y="206" width="217" height="44"/>
-                                <constraints>
-                                    <constraint firstAttribute="height" constant="44" id="vnr-On-wDO"/>
-                                </constraints>
-                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                                <inset key="contentEdgeInsets" minX="10" minY="0.0" maxX="10" maxY="0.0"/>
-                                <state key="normal" title="Document Scanner Demo"/>
-                                <connections>
-                                    <segue destination="YcZ-Bd-Nef" kind="show" id="ACn-JW-cE8"/>
-                                </connections>
-                            </button>
-                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="1cN-OK-541">
-                                <rect key="frame" x="192" y="270" width="217" height="44"/>
+                            <button opaque="NO" contentMode="scaleToFill" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="1cN-OK-541">
+                                <rect key="frame" x="192" y="322" width="217" height="44"/>
                                 <constraints>
                                     <constraint firstAttribute="height" constant="44" id="JWv-Va-hZV"/>
                                 </constraints>
                                 <fontDescription key="fontDescription" type="system" pointSize="17"/>
                                 <inset key="contentEdgeInsets" minX="10" minY="0.0" maxX="10" maxY="0.0"/>
-                                <state key="normal" title="Payform Scanner Demo">
+                                <state key="normal" title="Low-Level API">
                                     <color key="titleColor" red="0.0" green="0.47843137250000001" blue="1" alpha="1" colorSpace="calibratedRGB"/>
                                 </state>
                                 <connections>
                                     <segue destination="OcF-Ne-jQP" kind="show" id="aIA-Ws-a7p"/>
                                 </connections>
                             </button>
-                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="TEE-Gx-HIN">
-                                <rect key="frame" x="192" y="334" width="217" height="44"/>
+                            <button opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" horizontalCompressionResistancePriority="751" verticalCompressionResistancePriority="751" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="adM-sR-Tdg">
+                                <rect key="frame" x="192" y="278" width="217" height="44"/>
                                 <constraints>
-                                    <constraint firstAttribute="height" constant="44" id="yxl-TM-UTB"/>
+                                    <constraint firstAttribute="height" constant="44" id="vnr-On-wDO"/>
                                 </constraints>
                                 <fontDescription key="fontDescription" type="system" pointSize="17"/>
                                 <inset key="contentEdgeInsets" minX="10" minY="0.0" maxX="10" maxY="0.0"/>
-                                <state key="normal" title="Credit Card Demo">
-                                    <color key="titleColor" red="0.0" green="0.47843137250000001" blue="1" alpha="1" colorSpace="calibratedRGB"/>
-                                </state>
+                                <state key="normal" title="High-Level API"/>
                                 <connections>
-                                    <segue destination="blK-ed-CC4" kind="show" id="5Kf-xb-XHj"/>
-                                </connections>
-                            </button>
-                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="NPQ-lv-T29">
-                                <rect key="frame" x="192" y="398" width="217" height="44"/>
-                                <constraints>
-                                    <constraint firstAttribute="height" constant="44" id="XcB-Ye-Io4"/>
-                                </constraints>
-                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                                <inset key="contentEdgeInsets" minX="10" minY="0.0" maxX="10" maxY="0.0"/>
-                                <state key="normal" title="Cheque Demo">
-                                    <color key="titleColor" red="0.0" green="0.47843137250000001" blue="1" alpha="1" colorSpace="calibratedRGB"/>
-                                </state>
-                                <connections>
-                                    <segue destination="ze2-0c-o8S" kind="show" id="ij9-52-nwu"/>
+                                    <segue destination="YcZ-Bd-Nef" kind="show" id="ACn-JW-cE8"/>
                                 </connections>
                             </button>
                         </subviews>
                         <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
                         <constraints>
                             <constraint firstItem="1cN-OK-541" firstAttribute="width" secondItem="adM-sR-Tdg" secondAttribute="width" id="67q-g0-1by"/>
-                            <constraint firstItem="f4k-TS-bx7" firstAttribute="width" secondItem="adM-sR-Tdg" secondAttribute="width" id="815-EP-m3u"/>
                             <constraint firstItem="1cN-OK-541" firstAttribute="top" secondItem="adM-sR-Tdg" secondAttribute="bottom" constant="20" id="8M0-yq-dG6"/>
-                            <constraint firstItem="f4k-TS-bx7" firstAttribute="centerX" secondItem="c3R-D5-h9x" secondAttribute="centerX" id="9FN-ln-Yd6"/>
-                            <constraint firstItem="NPQ-lv-T29" firstAttribute="top" secondItem="TEE-Gx-HIN" secondAttribute="bottom" constant="20" id="9Mg-Yl-IVN"/>
-                            <constraint firstItem="TEE-Gx-HIN" firstAttribute="width" secondItem="1cN-OK-541" secondAttribute="width" id="ALU-Qi-4Ud"/>
-                            <constraint firstItem="adM-sR-Tdg" firstAttribute="top" secondItem="f4k-TS-bx7" secondAttribute="bottom" constant="30" id="CQL-z9-97O"/>
                             <constraint firstItem="adM-sR-Tdg" firstAttribute="bottom" secondItem="c3R-D5-h9x" secondAttribute="centerY" constant="-50" id="DY7-2s-83J"/>
                             <constraint firstItem="adM-sR-Tdg" firstAttribute="centerX" secondItem="c3R-D5-h9x" secondAttribute="centerX" id="Kwy-n0-Phm"/>
-                            <constraint firstItem="NPQ-lv-T29" firstAttribute="centerX" secondItem="c3R-D5-h9x" secondAttribute="centerX" id="T2K-1L-yQe"/>
-                            <constraint firstItem="TEE-Gx-HIN" firstAttribute="top" secondItem="1cN-OK-541" secondAttribute="bottom" constant="20" id="aUQ-h5-Ucz"/>
                             <constraint firstAttribute="trailingMargin" secondItem="bWn-qW-Jpa" secondAttribute="trailing" id="jOJ-dS-gzh"/>
                             <constraint firstItem="lwh-rA-iL3" firstAttribute="top" secondItem="bWn-qW-Jpa" secondAttribute="bottom" constant="8" id="rvI-Cn-p7k"/>
-                            <constraint firstItem="TEE-Gx-HIN" firstAttribute="centerX" secondItem="c3R-D5-h9x" secondAttribute="centerX" id="ugG-C5-EF5"/>
                             <constraint firstItem="1cN-OK-541" firstAttribute="centerX" secondItem="c3R-D5-h9x" secondAttribute="centerX" id="vTO-t9-wcn"/>
-                            <constraint firstItem="NPQ-lv-T29" firstAttribute="width" secondItem="adM-sR-Tdg" secondAttribute="width" id="wM0-Wx-Epc"/>
                             <constraint firstAttribute="leadingMargin" secondItem="bWn-qW-Jpa" secondAttribute="leading" id="wpC-K5-JU7"/>
                         </constraints>
                     </view>
                     <navigationItem key="navigationItem" id="Dxt-JB-ZNL"/>
                     <connections>
-                        <outlet property="chequeDemoButton" destination="NPQ-lv-T29" id="Qkm-4R-NDr"/>
-                        <outlet property="creditCardDemoButton" destination="TEE-Gx-HIN" id="Kym-tR-f0c"/>
                         <outlet property="documentDemoButton" destination="adM-sR-Tdg" id="PLf-GL-ENH"/>
                         <outlet property="payformDemoButton" destination="1cN-OK-541" id="SYX-49-ghJ"/>
                     </connections>
@@ -136,10 +92,10 @@
             </objects>
             <point key="canvasLocation" x="95" y="663"/>
         </scene>
-        <!--Document Demo View Controller-->
+        <!--High Level View Controller-->
         <scene sceneID="Fw0-m7-lgp">
             <objects>
-                <viewController storyboardIdentifier="DocumentDetectionDemoViewController" extendedLayoutIncludesOpaqueBars="YES" id="YcZ-Bd-Nef" customClass="DocumentDemoViewController" sceneMemberID="viewController">
+                <viewController storyboardIdentifier="DocumentDetectionDemoViewController" extendedLayoutIncludesOpaqueBars="YES" id="YcZ-Bd-Nef" customClass="HighLevelViewController" sceneMemberID="viewController">
                     <layoutGuides>
                         <viewControllerLayoutGuide type="top" id="BmT-Ci-TEy"/>
                         <viewControllerLayoutGuide type="bottom" id="8KW-v4-aGv"/>
@@ -233,10 +189,10 @@
             </objects>
             <point key="canvasLocation" x="807" y="283"/>
         </scene>
-        <!--Payform Demo View Controller-->
+        <!--Low Level View Controller-->
         <scene sceneID="LGY-tL-XS4">
             <objects>
-                <viewController id="OcF-Ne-jQP" customClass="PayformDemoViewController" sceneMemberID="viewController">
+                <viewController id="OcF-Ne-jQP" customClass="LowLevelViewController" sceneMemberID="viewController">
                     <layoutGuides>
                         <viewControllerLayoutGuide type="top" id="1AG-Ej-kE4"/>
                         <viewControllerLayoutGuide type="bottom" id="EHD-pg-t16"/>
@@ -250,78 +206,6 @@
                 <placeholder placeholderIdentifier="IBFirstResponder" id="3nW-rz-JhG" userLabel="First Responder" sceneMemberID="firstResponder"/>
             </objects>
             <point key="canvasLocation" x="807" y="1001"/>
-        </scene>
-        <!--Credit Card Recognition Demo View Controller-->
-        <scene sceneID="02R-8f-tQP">
-            <objects>
-                <viewController storyboardIdentifier="CreditCardRecognitionDemoViewController" id="blK-ed-CC4" customClass="CreditCardRecognitionDemoViewController" sceneMemberID="viewController">
-                    <layoutGuides>
-                        <viewControllerLayoutGuide type="top" id="Qfy-3t-8cz"/>
-                        <viewControllerLayoutGuide type="bottom" id="CHt-pc-tQj"/>
-                    </layoutGuides>
-                    <view key="view" contentMode="scaleToFill" id="Rho-FF-1sE">
-                        <rect key="frame" x="0.0" y="0.0" width="600" height="600"/>
-                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                        <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
-                    </view>
-                </viewController>
-                <placeholder placeholderIdentifier="IBFirstResponder" id="6hw-wT-cJz" userLabel="First Responder" sceneMemberID="firstResponder"/>
-            </objects>
-            <point key="canvasLocation" x="-367" y="1714"/>
-        </scene>
-        <!--Cheque Recognition Demo View Controller-->
-        <scene sceneID="nOz-3b-WNX">
-            <objects>
-                <viewController storyboardIdentifier="ChequeRecognitionDemoViewController" id="ze2-0c-o8S" customClass="ChequeRecognitionDemoViewController" sceneMemberID="viewController">
-                    <layoutGuides>
-                        <viewControllerLayoutGuide type="top" id="YGy-D6-shy"/>
-                        <viewControllerLayoutGuide type="bottom" id="XAg-e4-Bsm"/>
-                    </layoutGuides>
-                    <view key="view" contentMode="scaleToFill" id="KdW-m6-pAx">
-                        <rect key="frame" x="0.0" y="0.0" width="600" height="600"/>
-                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                        <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
-                    </view>
-                </viewController>
-                <placeholder placeholderIdentifier="IBFirstResponder" id="1i2-nS-z7l" userLabel="First Responder" sceneMemberID="firstResponder"/>
-            </objects>
-            <point key="canvasLocation" x="359" y="1714"/>
-        </scene>
-        <!--Recognized Text-->
-        <scene sceneID="jMy-hz-a1b">
-            <objects>
-                <viewController storyboardIdentifier="TextViewController" title="Recognized Text" automaticallyAdjustsScrollViewInsets="NO" id="caI-ys-HuD" customClass="TextViewController" sceneMemberID="viewController">
-                    <layoutGuides>
-                        <viewControllerLayoutGuide type="top" id="6nB-Bb-CcA"/>
-                        <viewControllerLayoutGuide type="bottom" id="upb-ON-AO7"/>
-                    </layoutGuides>
-                    <view key="view" contentMode="scaleToFill" id="XGR-VB-Eeh">
-                        <rect key="frame" x="0.0" y="0.0" width="600" height="600"/>
-                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                        <subviews>
-                            <textView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" editable="NO" translatesAutoresizingMaskIntoConstraints="NO" id="NWx-AA-LDt">
-                                <rect key="frame" x="20" y="20" width="560" height="580"/>
-                                <color key="backgroundColor" white="0.948755787037037" alpha="1" colorSpace="calibratedWhite"/>
-                                <string key="text">Lorem ipsum dolor sit er elit lamet, consectetaur cillium adipisicing pecu, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Nam liber te conscient to factor tum poen legum odioque civiuda.</string>
-                                <fontDescription key="fontDescription" type="system" pointSize="14"/>
-                                <textInputTraits key="textInputTraits" autocapitalizationType="sentences"/>
-                            </textView>
-                        </subviews>
-                        <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
-                        <constraints>
-                            <constraint firstAttribute="trailingMargin" secondItem="NWx-AA-LDt" secondAttribute="trailing" id="0xF-nd-tTE"/>
-                            <constraint firstItem="NWx-AA-LDt" firstAttribute="top" secondItem="6nB-Bb-CcA" secondAttribute="bottom" id="Vkz-J7-gp5"/>
-                            <constraint firstItem="NWx-AA-LDt" firstAttribute="leading" secondItem="XGR-VB-Eeh" secondAttribute="leadingMargin" id="g0t-Gt-6PR"/>
-                            <constraint firstItem="upb-ON-AO7" firstAttribute="top" secondItem="NWx-AA-LDt" secondAttribute="bottom" id="qkL-4W-3z6"/>
-                        </constraints>
-                    </view>
-                    <connections>
-                        <outlet property="textView" destination="NWx-AA-LDt" id="JLb-LM-Vbl"/>
-                    </connections>
-                </viewController>
-                <placeholder placeholderIdentifier="IBFirstResponder" id="JI0-fD-eUE" userLabel="First Responder" sceneMemberID="firstResponder"/>
-            </objects>
-            <point key="canvasLocation" x="1542" y="-96"/>
         </scene>
         <!--Generated PDF-->
         <scene sceneID="M96-tg-FQY">
