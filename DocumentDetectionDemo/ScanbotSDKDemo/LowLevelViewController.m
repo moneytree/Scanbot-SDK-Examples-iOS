@@ -22,6 +22,7 @@
 @property (nonatomic, strong) AVCaptureSession *session;
 @property (nonatomic, strong) AVCaptureVideoDataOutput *videoDataOutput;
 @property (nonatomic, strong) AVCaptureStillImageOutput *stillImageOutput;
+@property (nonatomic, strong) UIButton *takePhotoButton;
 @end
 
 @implementation LowLevelViewController
@@ -79,6 +80,18 @@
   self.detector = [[SBSDKDocumentDetector alloc] init];
 }
 
+- (void)initializeTakePhotoButton {
+  self.takePhotoButton = [UIButton buttonWithType:UIButtonTypeSystem];
+  [self.takePhotoButton setTitle:@"Take Photo" forState:UIControlStateNormal];
+  [self.takePhotoButton
+    addTarget:self
+    action:@selector(takePhotoButtonPressed:)
+    forControlEvents:UIControlEventTouchUpInside
+  ];
+  [self.view addSubview:self.takePhotoButton];
+  self.takePhotoButton.frame = CGRectMake(self.view.center.x - 50, self.view.bounds.size.height - 44, 100, 44);
+}
+
 - (void)viewDidLoad {
   [super viewDidLoad];
   self.view.backgroundColor = [UIColor blackColor];
@@ -86,6 +99,7 @@
   [self initializeCameraSession];
   [self initializeImageStorage];
   [self initializeDetector];
+  [self initializeTakePhotoButton];
 }
 
 - (void)viewDidLayoutSubviews {
@@ -210,6 +224,11 @@
     }
     self.currentProgress = nil;
   }];
+}
+
+- (void)takePhotoButtonPressed:(UIButton*)button {
+  SBSDKPolygon *polygon = [[SBSDKPolygon alloc] initWithNormalizedRect:self.view.bounds];
+  [self captureImageInPolygon:polygon];
 }
 
 @end
