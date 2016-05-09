@@ -22,7 +22,7 @@
 @property (nonatomic, strong) AVCaptureSession *session;
 @property (nonatomic, strong) AVCaptureVideoDataOutput *videoDataOutput;
 @property (nonatomic, strong) AVCaptureStillImageOutput *stillImageOutput;
-//@property (nonatomic, strong) UIImageView *imageView;
+@property (nonatomic, strong) UIImageView *imageView;
 
 @property (nonatomic, strong) UIButton *takePhotoButton;
 @property (nonatomic, strong) UIButton *retryButton;
@@ -37,6 +37,22 @@
 @property (nonatomic, strong) SBSDKPolygon *detectedPolygon;
 
 @end
+
+void getPoints(void *info, const CGPathElement *element)
+{
+    NSMutableArray *bezierPoints = (__bridge NSMutableArray *)info;
+    CGPathElementType type = element->type;
+    CGPoint *points = element->points;
+    if (type != kCGPathElementCloseSubpath) {
+      if ((type == kCGPathElementAddLineToPoint) || (type == kCGPathElementMoveToPoint)) {
+        [bezierPoints addObject:[NSValue valueWithCGPoint:points[0]]];
+      } else if (type == kCGPathElementAddQuadCurveToPoint) {
+        [bezierPoints addObject:[NSValue valueWithCGPoint:points[1]]];
+      } else if (type == kCGPathElementAddCurveToPoint) {
+        [bezierPoints addObject:[NSValue valueWithCGPoint:points[2]]];
+      }
+    }
+}
 
 @implementation LowLevelViewController
 
@@ -73,10 +89,10 @@
   [self.videoDataOutput setSampleBufferDelegate:self queue:dispatchQueue];
   self.videoDataOutput.videoSettings = @{ (NSString *)kCVPixelBufferPixelFormatTypeKey : @(kCVPixelFormatType_32BGRA) };
 //
-//  AVCaptureConnection *connection = [self.videoDataOutput connectionWithMediaType:AVMediaTypeVideo];
-//  if ([connection isVideoOrientationSupported]) {
-//    [connection setVideoOrientation: AVCaptureVideoOrientationPortrait];
-//  }
+  AVCaptureConnection *connection = [self.videoDataOutput connectionWithMediaType:AVMediaTypeVideo];
+  if ([connection isVideoOrientationSupported]) {
+    [connection setVideoOrientation: AVCaptureVideoOrientationPortrait];
+  }
 
   self.stillImageOutput = [[AVCaptureStillImageOutput alloc] init];
   NSDictionary *outputSettings = @{AVVideoCodecKey: AVVideoCodecJPEG};
@@ -86,12 +102,13 @@
 
   //Preview Layer
   self.previewLayer = [[AVCaptureVideoPreviewLayer alloc] initWithSession:self.session];
-  self.previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
-
+  self.previewLayer.videoGravity = AVLayerVideoGravityResize;
   [self.view.layer addSublayer:self.previewLayer];
 
-//  self.imageView = [[UIImageView alloc] initWithFrame:self.view.bounds];
-//  [self.view addSubview:self.imageView];
+  self.imageView = [[UIImageView alloc] initWithFrame:self.view.bounds];
+  self.imageView.contentMode = UIViewContentModeScaleToFill;
+  self.imageView.hidden = true;
+  [self.view addSubview:self.imageView];
 
   [self.view.layer addSublayer:self.polygonLayer];
 
@@ -212,11 +229,13 @@
 
 - (void)viewWillAppear:(BOOL)animated {
   [super viewWillAppear:animated];
+  [self.session startRunning];
   [self transitionToA];
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
   [super viewWillDisappear:animated];
+  [self.session stopRunning];
   self.detectionEnabled = NO;
 }
 
@@ -235,11 +254,6 @@
   [filter setValue:@(5.0) forKey:@"inputThreshold"];
   [filter setValue:cameraImage forKey:kCIInputImageKey];
 
-//  SBSDKDocumentDetectorResult *result = [self.detector detectDocumentPolygonOnSampleBuffer:sampleBuffer
-//    visibleImageRect:CGRectZero
-//    smoothingEnabled:NO
-//    useLiveDetectionParameters:YES];
-//  UIImage *image = [UIImage imageWithCIImage:[filter valueForKey:kCIOutputImageKey]];
   UIImage *image = [UIImage imageWithCIImage:cameraImage];
 
   SBSDKDocumentDetectorResult *result = [self.detector
@@ -248,12 +262,9 @@
     smoothingEnabled:NO
     useLiveDetectionParameters:YES
   ];
-  NSLog(@"%@", NSStringFromCGSize(CVImageBufferGetDisplaySize(pixelBuffer)));
 
   dispatch_async(dispatch_get_main_queue(), ^{
-    self.polygonLayer.path = [result.polygon bezierPathForPreviewLayer:self.previewLayer].CGPath;
-//    self.polygonLayer.path = [result.polygon bezierPathForSize:result.detectorImageSize].CGPath;
-//    self.imageView.image = image;
+    self.polygonLayer.path = [result.polygon bezierPathForSize:self.imageView.bounds.size].CGPath;
   });
 
   switch(result.status) {
@@ -261,15 +272,11 @@
       NSLog(@"Ok");
       self.detectedPolygon = result.polygon;
       [self transitionToB];
-//      self.polygonLayer.path = nil;
-//      [self captureImageInPolygon:result.polygon];
       break;
     case SBSDKDocumentDetectionStatusOK_SmallSize:
       NSLog(@"Ok Small");
       self.detectedPolygon = result.polygon;
       [self transitionToB];
-//      self.polygonLayer.path = nil;
-//      [self captureImageInPolygon:result.polygon];
       break;
     case SBSDKDocumentDetectionStatusOK_BadAngles:
       NSLog(@"Ok Bad Angle");
@@ -278,8 +285,6 @@
       NSLog(@"Ok Bad Aspect Ratio");
       self.detectedPolygon = result.polygon;
       [self transitionToB];
-//      self.polygonLayer.path = nil;
-//      [self captureImageInPolygon:result.polygon];
       break;
     case SBSDKDocumentDetectionStatusError_NothingDetected:
       NSLog(@"Error nothing detected");
@@ -295,7 +300,8 @@
 
 - (void)transitionToA {
   self.polygonLayer.path = nil;
-  [self.session startRunning];
+  self.imageView.hidden = true;
+  self.previewLayer.connection.enabled = YES;
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
     self.detectionEnabled = YES;
     self.retryButton.hidden = true;
@@ -311,9 +317,10 @@
 
 - (void)transitionToB {
   self.detectionEnabled = NO;
+  self.previewLayer.connection.enabled = NO;
+  self.imageView.hidden = false;
+  [self captureImage];
   dispatch_async(dispatch_get_main_queue(), ^{
-    NSLog(@"Preview Layer: %@", [self.detectedPolygon bezierPathForPreviewLayer:self.previewLayer]);
-    NSLog(@"Size: %@", [self.detectedPolygon bezierPathForSize:self.previewLayer.bounds.size]);
     [self showCornerControls:self.detectedPolygon];
     self.takePhotoButton.hidden = true;
     self.retryButton.hidden = false;
@@ -323,10 +330,14 @@
 }
 
 - (void)transitionToC {
-  [self captureImageInPolygon:self.detectedPolygon];
+  UIImage *image = [self.imageView.image
+    imageWarpedByPolygon:self.detectedPolygon
+    andFilteredBy:SBSDKImageFilterTypeBinarized];
+  [self.imageStorage addImage:image];
+  [self writePDF];
 }
 
-- (void)captureImageInPolygon:(SBSDKPolygon *)polygon {
+- (void)captureImage {
   AVCaptureConnection *videoConnection = nil;
 
   for (AVCaptureConnection *connection in self.stillImageOutput.connections) {
@@ -339,22 +350,16 @@
     if (videoConnection) { break; }
   }
 
-  if (!polygon || !videoConnection) {
+  if (!videoConnection) {
     return;
   }
 
   [self.stillImageOutput
    captureStillImageAsynchronouslyFromConnection:videoConnection
    completionHandler:^(CMSampleBufferRef sampleBuffer, NSError *error) {
-//    CMSetAttachment(sampleBuffer, kCGImagePropertyOrientation, UIImageOrientationUp, kCMAttachmentMode_ShouldPropagate);
-
     NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:sampleBuffer];
     UIImage *image = [[UIImage alloc] initWithData:imageData];
-//    image = [image imageRotatedClockwise:1];
-    image = [image imageWarpedByPolygon:polygon andFilteredBy:SBSDKImageFilterTypeBinarized];
-//    image = [image imageRotatedClockwise:1];
-    [self.imageStorage addImage:image];
-    [self writePDF];
+    self.imageView.image = image;
   }];
 }
 
@@ -382,8 +387,8 @@
 }
 
 - (void)takePhotoButtonPressed:(UIButton*)button {
-  SBSDKPolygon *polygon = [[SBSDKPolygon alloc] initWithNormalizedRect:self.view.bounds];
-  [self captureImageInPolygon:polygon];
+  [self captureImage];
+  [self transitionToB];
 }
 
 - (void)retryButtonPressed:(UIButton*)button {
@@ -395,30 +400,35 @@
 }
 
 - (void)scanAnotherButtonPressed:(UIButton*)button {
-  SBSDKPolygon *polygon = [[SBSDKPolygon alloc] initWithNormalizedRect:self.view.bounds];
-  [self captureImageInPolygon:polygon];
+  [self transitionToA];
 }
 
 - (void)showCornerControls:(SBSDKPolygon*)polygon {
-//  CGPoint topLeftCorner = [polygon absolutePointWithIndex:0 forSize:self.polygonLayer.bounds.size];
-//  self.topLeftCornerView.center = topLeftCorner;
-//  self.topLeftCornerView.hidden = false;
-//
-//  CGPoint topRightCorner = [polygon absolutePointWithIndex:1 forSize:self.polygonLayer.bounds.size];
-//  self.topRightCornerView.center = topRightCorner;
-//  self.topRightCornerView.hidden = false;
-//
-//  CGPoint bottomLeftCorner = [polygon absolutePointWithIndex:2 forSize:self.polygonLayer.bounds.size];
-//  self.bottomLeftCornerView.center = bottomLeftCorner;
-//  self.bottomLeftCornerView.hidden = false;
-//
-//  CGPoint bottomRightCorner = [polygon absolutePointWithIndex:3 forSize:self.polygonLayer.bounds.size];
-//  self.bottomRightCornerView.center = bottomRightCorner;
-//  self.bottomRightCornerView.hidden = false;
+  NSMutableArray *points = [NSMutableArray array];
+  CGPathApply(
+    [self.detectedPolygon bezierPathForSize:self.imageView.bounds.size].CGPath,
+    (__bridge void *)points,
+    getPoints
+  );
+
+  CGPoint topLeftCorner = ((NSValue*) points[0]).CGPointValue;
+  self.topLeftCornerView.center = topLeftCorner;
+  self.topLeftCornerView.hidden = false;
+
+  CGPoint topRightCorner = ((NSValue*) points[1]).CGPointValue;
+  self.topRightCornerView.center = topRightCorner;
+  self.topRightCornerView.hidden = false;
+
+  CGPoint bottomLeftCorner = ((NSValue*) points[3]).CGPointValue;
+  self.bottomLeftCornerView.center = bottomLeftCorner;
+  self.bottomLeftCornerView.hidden = false;
+
+  CGPoint bottomRightCorner = ((NSValue*) points[2]).CGPointValue;
+  self.bottomRightCornerView.center = bottomRightCorner;
+  self.bottomRightCornerView.hidden = false;
 }
 
 - (void)cornerPanGestureRecognized:(UIPanGestureRecognizer *)panGestureRecognizer {
-  NSLog(@"Before: %@", self.detectedPolygon);
   CGPoint normalizedPoint = CGPointMake(
     [panGestureRecognizer locationInView:self.view].x / self.view.bounds.size.width,
     [panGestureRecognizer locationInView:self.view].y / self.view.bounds.size.height
@@ -437,14 +447,14 @@
       pointC: [self.detectedPolygon normalizedPointWithIndex:2]
       pointD: [self.detectedPolygon normalizedPointWithIndex:3]
     ];
-  } else if (panGestureRecognizer.view == self.bottomLeftCornerView) {
+  } else if (panGestureRecognizer.view == self.bottomRightCornerView) {
     self.detectedPolygon = [[SBSDKPolygon alloc]
       initWithNormalizedPointA: [self.detectedPolygon normalizedPointWithIndex:0]
       pointB: [self.detectedPolygon normalizedPointWithIndex:1]
       pointC: normalizedPoint
       pointD: [self.detectedPolygon normalizedPointWithIndex:3]
     ];
-  } else if (panGestureRecognizer.view == self.bottomRightCornerView) {
+  } else if (panGestureRecognizer.view == self.bottomLeftCornerView) {
     self.detectedPolygon = [[SBSDKPolygon alloc]
       initWithNormalizedPointA: [self.detectedPolygon normalizedPointWithIndex:0]
       pointB: [self.detectedPolygon normalizedPointWithIndex:1]
@@ -452,8 +462,8 @@
       pointD: normalizedPoint
     ];
   }
-  NSLog(@"After: %@", self.detectedPolygon);
-  self.polygonLayer.path = [self.detectedPolygon bezierPathForPreviewLayer:self.previewLayer].CGPath;
+
+  self.polygonLayer.path = [self.detectedPolygon bezierPathForSize:self.imageView.bounds.size].CGPath;
   [self showCornerControls:self.detectedPolygon];
 }
 
