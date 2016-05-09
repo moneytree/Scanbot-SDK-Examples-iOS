@@ -22,7 +22,7 @@
 @property (nonatomic, strong) AVCaptureSession *session;
 @property (nonatomic, strong) AVCaptureVideoDataOutput *videoDataOutput;
 @property (nonatomic, strong) AVCaptureStillImageOutput *stillImageOutput;
-@property (nonatomic, strong) UIImageView *imageView;
+@property (nonatomic, strong) UIImage *currentImage;
 
 @property (nonatomic, strong) UIButton *takePhotoButton;
 @property (nonatomic, strong) UIButton *retryButton;
@@ -33,6 +33,11 @@
 @property (nonatomic, strong) UIView *topRightCornerView;
 @property (nonatomic, strong) UIView *bottomLeftCornerView;
 @property (nonatomic, strong) UIView *bottomRightCornerView;
+
+@property (nonatomic, strong) UIView *topEdgeView;
+@property (nonatomic, strong) UIView *leftEdgeView;
+@property (nonatomic, strong) UIView *rightEdgeView;
+@property (nonatomic, strong) UIView *bottomEdgeView;
 
 @property (nonatomic, strong) SBSDKPolygon *detectedPolygon;
 
@@ -104,12 +109,6 @@ void getPoints(void *info, const CGPathElement *element)
   self.previewLayer = [[AVCaptureVideoPreviewLayer alloc] initWithSession:self.session];
   self.previewLayer.videoGravity = AVLayerVideoGravityResize;
   [self.view.layer addSublayer:self.previewLayer];
-
-  self.imageView = [[UIImageView alloc] initWithFrame:self.view.bounds];
-  self.imageView.contentMode = UIViewContentModeScaleToFill;
-  self.imageView.hidden = true;
-  [self.view addSubview:self.imageView];
-
   [self.view.layer addSublayer:self.polygonLayer];
 
   self.topLeftCornerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 44, 44)];
@@ -144,6 +143,39 @@ void getPoints(void *info, const CGPathElement *element)
   [self.view addSubview:self.topRightCornerView];
   [self.view addSubview:self.bottomLeftCornerView];
   [self.view addSubview:self.bottomRightCornerView];
+
+  self.topEdgeView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 44, 44)];
+  self.topEdgeView.backgroundColor = [UIColor blueColor];
+  [self.topEdgeView addGestureRecognizer:[[UIPanGestureRecognizer alloc]
+    initWithTarget:self
+    action:@selector(edgePanGestureRecognized:)]];
+  self.topEdgeView.hidden = true;
+
+  self.leftEdgeView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 44, 44)];
+  self.leftEdgeView.backgroundColor = [UIColor blueColor];
+  [self.leftEdgeView addGestureRecognizer:[[UIPanGestureRecognizer alloc]
+    initWithTarget:self
+    action:@selector(edgePanGestureRecognized:)]];
+  self.leftEdgeView.hidden = true;
+
+  self.rightEdgeView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 44, 44)];
+  self.rightEdgeView.backgroundColor = [UIColor blueColor];
+  [self.rightEdgeView addGestureRecognizer:[[UIPanGestureRecognizer alloc]
+    initWithTarget:self
+    action:@selector(edgePanGestureRecognized:)]];
+  self.rightEdgeView.hidden = true;
+
+  self.bottomEdgeView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 44, 44)];
+  self.bottomEdgeView.backgroundColor = [UIColor blueColor];
+  [self.bottomEdgeView addGestureRecognizer:[[UIPanGestureRecognizer alloc]
+    initWithTarget:self
+    action:@selector(edgePanGestureRecognized:)]];
+  self.bottomEdgeView.hidden = true;
+
+  [self.view addSubview:self.topEdgeView];
+  [self.view addSubview:self.leftEdgeView];
+  [self.view addSubview:self.rightEdgeView];
+  [self.view addSubview:self.bottomEdgeView];
 }
 
 - (void)initializeImageStorage {
@@ -264,7 +296,7 @@ void getPoints(void *info, const CGPathElement *element)
   ];
 
   dispatch_async(dispatch_get_main_queue(), ^{
-    self.polygonLayer.path = [result.polygon bezierPathForSize:self.imageView.bounds.size].CGPath;
+    self.polygonLayer.path = [result.polygon bezierPathForSize:self.previewLayer.bounds.size].CGPath;
   });
 
   switch(result.status) {
@@ -300,13 +332,23 @@ void getPoints(void *info, const CGPathElement *element)
 
 - (void)transitionToA {
   self.polygonLayer.path = nil;
-  self.imageView.hidden = true;
+  self.currentImage = nil;
   self.previewLayer.connection.enabled = YES;
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-    self.detectionEnabled = YES;
+  dispatch_async(dispatch_get_main_queue(), ^{
     self.retryButton.hidden = true;
     self.saveButton.hidden = true;
     self.scanAnotherButton.hidden = true;
+    self.topLeftCornerView.hidden = true;
+    self.topRightCornerView.hidden = true;
+    self.bottomLeftCornerView.hidden = true;
+    self.bottomRightCornerView.hidden = true;
+    self.topEdgeView.hidden = true;
+    self.leftEdgeView.hidden = true;
+    self.rightEdgeView.hidden = true;
+    self.bottomEdgeView.hidden = true;
+  });
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    self.detectionEnabled = YES;
   });
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
     if (self.detectionEnabled) {
@@ -318,10 +360,10 @@ void getPoints(void *info, const CGPathElement *element)
 - (void)transitionToB {
   self.detectionEnabled = NO;
   self.previewLayer.connection.enabled = NO;
-  self.imageView.hidden = false;
   [self captureImage];
   dispatch_async(dispatch_get_main_queue(), ^{
     [self showCornerControls:self.detectedPolygon];
+    [self showEdgeControls:self.detectedPolygon];
     self.takePhotoButton.hidden = true;
     self.retryButton.hidden = false;
     self.saveButton.hidden = false;
@@ -330,7 +372,7 @@ void getPoints(void *info, const CGPathElement *element)
 }
 
 - (void)transitionToC {
-  UIImage *image = [self.imageView.image
+  UIImage *image = [self.currentImage
     imageWarpedByPolygon:self.detectedPolygon
     andFilteredBy:SBSDKImageFilterTypeBinarized];
   [self.imageStorage addImage:image];
@@ -359,7 +401,7 @@ void getPoints(void *info, const CGPathElement *element)
    completionHandler:^(CMSampleBufferRef sampleBuffer, NSError *error) {
     NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:sampleBuffer];
     UIImage *image = [[UIImage alloc] initWithData:imageData];
-    self.imageView.image = image;
+    self.currentImage = image;
   }];
 }
 
@@ -387,7 +429,6 @@ void getPoints(void *info, const CGPathElement *element)
 }
 
 - (void)takePhotoButtonPressed:(UIButton*)button {
-  [self captureImage];
   [self transitionToB];
 }
 
@@ -406,7 +447,7 @@ void getPoints(void *info, const CGPathElement *element)
 - (void)showCornerControls:(SBSDKPolygon*)polygon {
   NSMutableArray *points = [NSMutableArray array];
   CGPathApply(
-    [self.detectedPolygon bezierPathForSize:self.imageView.bounds.size].CGPath,
+    [polygon bezierPathForSize:self.previewLayer.bounds.size].CGPath,
     (__bridge void *)points,
     getPoints
   );
@@ -419,13 +460,32 @@ void getPoints(void *info, const CGPathElement *element)
   self.topRightCornerView.center = topRightCorner;
   self.topRightCornerView.hidden = false;
 
-  CGPoint bottomLeftCorner = ((NSValue*) points[3]).CGPointValue;
-  self.bottomLeftCornerView.center = bottomLeftCorner;
-  self.bottomLeftCornerView.hidden = false;
-
   CGPoint bottomRightCorner = ((NSValue*) points[2]).CGPointValue;
   self.bottomRightCornerView.center = bottomRightCorner;
   self.bottomRightCornerView.hidden = false;
+
+  CGPoint bottomLeftCorner = ((NSValue*) points[3]).CGPointValue;
+  self.bottomLeftCornerView.center = bottomLeftCorner;
+  self.bottomLeftCornerView.hidden = false;
+}
+
+- (void)showEdgeControls:(SBSDKPolygon*)polygon {
+  SBSDKPolygonEdge *topEdge = [polygon absoluteEdgeWithIndex:0 forSize:self.previewLayer.bounds.size];
+  SBSDKPolygonEdge *rightEdge = [polygon absoluteEdgeWithIndex:1 forSize:self.previewLayer.bounds.size];
+  SBSDKPolygonEdge *bottomEdge = [polygon absoluteEdgeWithIndex:2 forSize:self.previewLayer.bounds.size];
+  SBSDKPolygonEdge *leftEdge = [polygon absoluteEdgeWithIndex:3 forSize:self.previewLayer.bounds.size];
+
+  self.topEdgeView.center = topEdge.center;
+  self.topEdgeView.hidden = false;
+
+  self.leftEdgeView.center = leftEdge.center;
+  self.leftEdgeView.hidden = false;
+
+  self.rightEdgeView.center = rightEdge.center;
+  self.rightEdgeView.hidden = false;
+
+  self.bottomEdgeView.center = bottomEdge.center;
+  self.bottomEdgeView.hidden = false;
 }
 
 - (void)cornerPanGestureRecognized:(UIPanGestureRecognizer *)panGestureRecognizer {
@@ -433,38 +493,75 @@ void getPoints(void *info, const CGPathElement *element)
     [panGestureRecognizer locationInView:self.view].x / self.view.bounds.size.width,
     [panGestureRecognizer locationInView:self.view].y / self.view.bounds.size.height
   );
+
+  CGPoint pointA = [self.detectedPolygon normalizedPointWithIndex:0];
+  CGPoint pointB = [self.detectedPolygon normalizedPointWithIndex:1];
+  CGPoint pointC = [self.detectedPolygon normalizedPointWithIndex:2];
+  CGPoint pointD = [self.detectedPolygon normalizedPointWithIndex:3];
+
   if (panGestureRecognizer.view == self.topLeftCornerView) {
-    self.detectedPolygon = [[SBSDKPolygon alloc]
-      initWithNormalizedPointA: normalizedPoint
-      pointB: [self.detectedPolygon normalizedPointWithIndex:1]
-      pointC: [self.detectedPolygon normalizedPointWithIndex:2]
-      pointD: [self.detectedPolygon normalizedPointWithIndex:3]
-    ];
+    pointA = normalizedPoint;
   } else if (panGestureRecognizer.view == self.topRightCornerView) {
-    self.detectedPolygon = [[SBSDKPolygon alloc]
-      initWithNormalizedPointA: [self.detectedPolygon normalizedPointWithIndex:0]
-      pointB: normalizedPoint
-      pointC: [self.detectedPolygon normalizedPointWithIndex:2]
-      pointD: [self.detectedPolygon normalizedPointWithIndex:3]
-    ];
+    pointB = normalizedPoint;
   } else if (panGestureRecognizer.view == self.bottomRightCornerView) {
-    self.detectedPolygon = [[SBSDKPolygon alloc]
-      initWithNormalizedPointA: [self.detectedPolygon normalizedPointWithIndex:0]
-      pointB: [self.detectedPolygon normalizedPointWithIndex:1]
-      pointC: normalizedPoint
-      pointD: [self.detectedPolygon normalizedPointWithIndex:3]
-    ];
+    pointC = normalizedPoint;
   } else if (panGestureRecognizer.view == self.bottomLeftCornerView) {
-    self.detectedPolygon = [[SBSDKPolygon alloc]
-      initWithNormalizedPointA: [self.detectedPolygon normalizedPointWithIndex:0]
-      pointB: [self.detectedPolygon normalizedPointWithIndex:1]
-      pointC: [self.detectedPolygon normalizedPointWithIndex:2]
-      pointD: normalizedPoint
-    ];
+    pointD = normalizedPoint;
   }
 
-  self.polygonLayer.path = [self.detectedPolygon bezierPathForSize:self.imageView.bounds.size].CGPath;
-  [self showCornerControls:self.detectedPolygon];
+  SBSDKPolygon *polygon = [[SBSDKPolygon alloc]
+    initWithNormalizedPointA: pointA
+    pointB: pointB
+    pointC: pointC
+    pointD: pointD
+  ];
+
+  self.polygonLayer.path = [polygon bezierPathForSize:self.previewLayer.bounds.size].CGPath;
+  [self showCornerControls:polygon];
+  [self showEdgeControls:polygon];
+
+  if (panGestureRecognizer.state == UIGestureRecognizerStateEnded) {
+    self.detectedPolygon = polygon;
+  }
+}
+
+- (void)edgePanGestureRecognized:(UIPanGestureRecognizer *)panGestureRecognizer {
+  CGPoint normalizedTranslation = CGPointMake(
+    [panGestureRecognizer translationInView:self.view].x / self.view.bounds.size.width,
+    [panGestureRecognizer translationInView:self.view].y / self.view.bounds.size.height
+  );
+
+  CGPoint pointA = [self.detectedPolygon normalizedPointWithIndex:0];
+  CGPoint pointB = [self.detectedPolygon normalizedPointWithIndex:1];
+  CGPoint pointC = [self.detectedPolygon normalizedPointWithIndex:2];
+  CGPoint pointD = [self.detectedPolygon normalizedPointWithIndex:3];
+
+  if (panGestureRecognizer.view == self.topEdgeView) {
+    pointA.y += normalizedTranslation.y;
+    pointB.y += normalizedTranslation.y;
+  } else if (panGestureRecognizer.view == self.leftEdgeView) {
+    pointA.x += normalizedTranslation.x;
+    pointD.x += normalizedTranslation.x;
+  } else if (panGestureRecognizer.view == self.rightEdgeView) {
+    pointB.x += normalizedTranslation.x;
+    pointC.x += normalizedTranslation.x;
+  } else if (panGestureRecognizer.view == self.bottomEdgeView) {
+    pointC.y += normalizedTranslation.y;
+    pointD.y += normalizedTranslation.y;
+  }
+  SBSDKPolygon *polygon = [[SBSDKPolygon alloc]
+    initWithNormalizedPointA: pointA
+    pointB: pointB
+    pointC: pointC
+    pointD: pointD
+  ];
+  self.polygonLayer.path = [polygon bezierPathForSize:self.previewLayer.bounds.size].CGPath;
+  [self showCornerControls:polygon];
+  [self showEdgeControls:polygon];
+
+  if (panGestureRecognizer.state == UIGestureRecognizerStateEnded) {
+    self.detectedPolygon = polygon;
+  }
 }
 
 @end
