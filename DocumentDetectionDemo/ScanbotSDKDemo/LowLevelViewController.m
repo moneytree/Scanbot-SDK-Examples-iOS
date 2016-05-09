@@ -39,7 +39,8 @@
 @property (nonatomic, strong) UIView *rightEdgeView;
 @property (nonatomic, strong) UIView *bottomEdgeView;
 
-@property (nonatomic, strong) SBSDKPolygon *detectedPolygon;
+@property (nonatomic, strong) SBSDKPolygon *detectingPolygon;
+@property (nonatomic, strong) SBSDKPolygon *editingPolygon;
 
 @end
 
@@ -85,7 +86,6 @@ void getPoints(void *info, const CGPathElement *element)
 
   [self.session addInput:input];
 
-  //Output
   dispatch_queue_t dispatchQueue;
   dispatchQueue = dispatch_queue_create("scannerQueue", NULL);
 
@@ -93,7 +93,7 @@ void getPoints(void *info, const CGPathElement *element)
   [self.session addOutput:self.videoDataOutput];
   [self.videoDataOutput setSampleBufferDelegate:self queue:dispatchQueue];
   self.videoDataOutput.videoSettings = @{ (NSString *)kCVPixelBufferPixelFormatTypeKey : @(kCVPixelFormatType_32BGRA) };
-//
+
   AVCaptureConnection *connection = [self.videoDataOutput connectionWithMediaType:AVMediaTypeVideo];
   if ([connection isVideoOrientationSupported]) {
     [connection setVideoOrientation: AVCaptureVideoOrientationPortrait];
@@ -102,10 +102,8 @@ void getPoints(void *info, const CGPathElement *element)
   self.stillImageOutput = [[AVCaptureStillImageOutput alloc] init];
   NSDictionary *outputSettings = @{AVVideoCodecKey: AVVideoCodecJPEG};
   self.stillImageOutput.outputSettings = outputSettings;
-
   [self.session addOutput:self.stillImageOutput];
 
-  //Preview Layer
   self.previewLayer = [[AVCaptureVideoPreviewLayer alloc] initWithSession:self.session];
   self.previewLayer.videoGravity = AVLayerVideoGravityResize;
   [self.view.layer addSublayer:self.previewLayer];
@@ -302,12 +300,12 @@ void getPoints(void *info, const CGPathElement *element)
   switch(result.status) {
     case SBSDKDocumentDetectionStatusOK:
       NSLog(@"Ok");
-      self.detectedPolygon = result.polygon;
+      self.detectingPolygon = result.polygon;
       [self transitionToB];
       break;
     case SBSDKDocumentDetectionStatusOK_SmallSize:
       NSLog(@"Ok Small");
-      self.detectedPolygon = result.polygon;
+      self.detectingPolygon = result.polygon;
       [self transitionToB];
       break;
     case SBSDKDocumentDetectionStatusOK_BadAngles:
@@ -315,7 +313,7 @@ void getPoints(void *info, const CGPathElement *element)
       break;
     case SBSDKDocumentDetectionStatusOK_BadAspectRatio:
       NSLog(@"Ok Bad Aspect Ratio");
-      self.detectedPolygon = result.polygon;
+      self.detectingPolygon = result.polygon;
       [self transitionToB];
       break;
     case SBSDKDocumentDetectionStatusError_NothingDetected:
@@ -334,6 +332,8 @@ void getPoints(void *info, const CGPathElement *element)
   self.polygonLayer.path = nil;
   self.currentImage = nil;
   self.previewLayer.connection.enabled = YES;
+  self.detectingPolygon = nil;
+  self.editingPolygon = nil;
   dispatch_async(dispatch_get_main_queue(), ^{
     self.retryButton.hidden = true;
     self.saveButton.hidden = true;
@@ -360,10 +360,11 @@ void getPoints(void *info, const CGPathElement *element)
 - (void)transitionToB {
   self.detectionEnabled = NO;
   self.previewLayer.connection.enabled = NO;
+  self.editingPolygon = self.detectingPolygon;
   [self captureImage];
   dispatch_async(dispatch_get_main_queue(), ^{
-    [self showCornerControls:self.detectedPolygon];
-    [self showEdgeControls:self.detectedPolygon];
+    [self showCornerControls:self.editingPolygon];
+    [self showEdgeControls:self.editingPolygon];
     self.takePhotoButton.hidden = true;
     self.retryButton.hidden = false;
     self.saveButton.hidden = false;
@@ -373,7 +374,7 @@ void getPoints(void *info, const CGPathElement *element)
 
 - (void)transitionToC {
   UIImage *image = [self.currentImage
-    imageWarpedByPolygon:self.detectedPolygon
+    imageWarpedByPolygon:self.editingPolygon
     andFilteredBy:SBSDKImageFilterTypeBinarized];
   [self.imageStorage addImage:image];
   [self writePDF];
@@ -494,19 +495,26 @@ void getPoints(void *info, const CGPathElement *element)
     [panGestureRecognizer locationInView:self.view].y / self.view.bounds.size.height
   );
 
-  CGPoint pointA = [self.detectedPolygon normalizedPointWithIndex:0];
-  CGPoint pointB = [self.detectedPolygon normalizedPointWithIndex:1];
-  CGPoint pointC = [self.detectedPolygon normalizedPointWithIndex:2];
-  CGPoint pointD = [self.detectedPolygon normalizedPointWithIndex:3];
+  CGPoint pointA = [self.editingPolygon normalizedPointWithIndex:0];
+  CGPoint pointB = [self.editingPolygon normalizedPointWithIndex:1];
+  CGPoint pointC = [self.editingPolygon normalizedPointWithIndex:2];
+  CGPoint pointD = [self.editingPolygon normalizedPointWithIndex:3];
+
+  CGPoint detectingPointA = [self.detectingPolygon normalizedPointWithIndex:0];
+  CGPoint detectingPointB = [self.detectingPolygon normalizedPointWithIndex:1];
+  CGPoint detectingPointC = [self.detectingPolygon normalizedPointWithIndex:2];
+  CGPoint detectingPointD = [self.detectingPolygon normalizedPointWithIndex:3];
+
+  CGFloat snapThreshold = 0.015;
 
   if (panGestureRecognizer.view == self.topLeftCornerView) {
-    pointA = normalizedPoint;
+    pointA = [self snapPoint:normalizedPoint toPoint:detectingPointA withThreshold:snapThreshold];
   } else if (panGestureRecognizer.view == self.topRightCornerView) {
-    pointB = normalizedPoint;
+    pointB = [self snapPoint:normalizedPoint toPoint:detectingPointB withThreshold:snapThreshold];
   } else if (panGestureRecognizer.view == self.bottomRightCornerView) {
-    pointC = normalizedPoint;
+    pointC = [self snapPoint:normalizedPoint toPoint:detectingPointC withThreshold:snapThreshold];
   } else if (panGestureRecognizer.view == self.bottomLeftCornerView) {
-    pointD = normalizedPoint;
+    pointD = [self snapPoint:normalizedPoint toPoint:detectingPointD withThreshold:snapThreshold];
   }
 
   SBSDKPolygon *polygon = [[SBSDKPolygon alloc]
@@ -521,7 +529,7 @@ void getPoints(void *info, const CGPathElement *element)
   [self showEdgeControls:polygon];
 
   if (panGestureRecognizer.state == UIGestureRecognizerStateEnded) {
-    self.detectedPolygon = polygon;
+    self.editingPolygon = polygon;
   }
 }
 
@@ -531,23 +539,42 @@ void getPoints(void *info, const CGPathElement *element)
     [panGestureRecognizer translationInView:self.view].y / self.view.bounds.size.height
   );
 
-  CGPoint pointA = [self.detectedPolygon normalizedPointWithIndex:0];
-  CGPoint pointB = [self.detectedPolygon normalizedPointWithIndex:1];
-  CGPoint pointC = [self.detectedPolygon normalizedPointWithIndex:2];
-  CGPoint pointD = [self.detectedPolygon normalizedPointWithIndex:3];
+  CGPoint pointA = [self.editingPolygon normalizedPointWithIndex:0];
+  CGPoint pointB = [self.editingPolygon normalizedPointWithIndex:1];
+  CGPoint pointC = [self.editingPolygon normalizedPointWithIndex:2];
+  CGPoint pointD = [self.editingPolygon normalizedPointWithIndex:3];
+
+  CGPoint detectingPointA = [self.detectingPolygon normalizedPointWithIndex:0];
+  CGPoint detectingPointB = [self.detectingPolygon normalizedPointWithIndex:1];
+  CGPoint detectingPointC = [self.detectingPolygon normalizedPointWithIndex:2];
+  CGPoint detectingPointD = [self.detectingPolygon normalizedPointWithIndex:3];
+
+  CGFloat snapThreshold = 0.01;
 
   if (panGestureRecognizer.view == self.topEdgeView) {
     pointA.y += normalizedTranslation.y;
     pointB.y += normalizedTranslation.y;
+
+    pointA = [self snapPoint:pointA toPoint:detectingPointA withThreshold:snapThreshold];
+    pointB = [self snapPoint:pointB toPoint:detectingPointB withThreshold:snapThreshold];
   } else if (panGestureRecognizer.view == self.leftEdgeView) {
     pointA.x += normalizedTranslation.x;
     pointD.x += normalizedTranslation.x;
+
+    pointA = [self snapPoint:pointA toPoint:detectingPointA withThreshold:snapThreshold];
+    pointD = [self snapPoint:pointD toPoint:detectingPointD withThreshold:snapThreshold];
   } else if (panGestureRecognizer.view == self.rightEdgeView) {
     pointB.x += normalizedTranslation.x;
     pointC.x += normalizedTranslation.x;
+
+    pointB = [self snapPoint:pointB toPoint:detectingPointB withThreshold:snapThreshold];
+    pointC = [self snapPoint:pointC toPoint:detectingPointC withThreshold:snapThreshold];
   } else if (panGestureRecognizer.view == self.bottomEdgeView) {
     pointC.y += normalizedTranslation.y;
     pointD.y += normalizedTranslation.y;
+
+    pointC = [self snapPoint:pointC toPoint:detectingPointC withThreshold:snapThreshold];
+    pointD = [self snapPoint:pointD toPoint:detectingPointD withThreshold:snapThreshold];
   }
   SBSDKPolygon *polygon = [[SBSDKPolygon alloc]
     initWithNormalizedPointA: pointA
@@ -560,8 +587,15 @@ void getPoints(void *info, const CGPathElement *element)
   [self showEdgeControls:polygon];
 
   if (panGestureRecognizer.state == UIGestureRecognizerStateEnded) {
-    self.detectedPolygon = polygon;
+    self.editingPolygon = polygon;
   }
+}
+
+- (CGPoint)snapPoint:(CGPoint)point1 toPoint:(CGPoint)point2 withThreshold:(CGFloat)threshold {
+  if (fabs(point1.x - point2.x) < threshold && fabs(point1.y - point2.y) < threshold) {
+    return point2;
+  }
+  return point1;
 }
 
 @end
