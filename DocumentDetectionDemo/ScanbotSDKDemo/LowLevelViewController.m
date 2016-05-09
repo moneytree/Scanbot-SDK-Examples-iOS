@@ -377,6 +377,9 @@ void getPoints(void *info, const CGPathElement *element)
     imageWarpedByPolygon:self.editingPolygon
     andFilteredBy:SBSDKImageFilterTypeBinarized];
   [self.imageStorage addImage:image];
+}
+
+- (void)transitionToD {
   [self writePDF];
 }
 
@@ -439,9 +442,11 @@ void getPoints(void *info, const CGPathElement *element)
 
 - (void)saveButtonPressed:(UIButton*)button {
   [self transitionToC];
+  [self transitionToD];
 }
 
 - (void)scanAnotherButtonPressed:(UIButton*)button {
+  [self transitionToC];
   [self transitionToA];
 }
 
