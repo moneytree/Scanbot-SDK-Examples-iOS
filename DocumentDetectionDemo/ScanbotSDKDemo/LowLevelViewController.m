@@ -41,6 +41,7 @@
 
 @property (nonatomic, strong) SBSDKPolygon *detectingPolygon;
 @property (nonatomic, strong) SBSDKPolygon *editingPolygon;
+@property (nonatomic) NSUInteger detectedCount;
 
 @end
 
@@ -292,40 +293,47 @@ void getPoints(void *info, const CGPathElement *element)
     smoothingEnabled:NO
     useLiveDetectionParameters:YES
   ];
+  CGPoint pointA = [result.polygon normalizedPointWithIndex:0];
+  CGPoint pointB = [result.polygon normalizedPointWithIndex:1];
+  CGPoint pointC = [result.polygon normalizedPointWithIndex:2];
+  CGPoint pointD = [result.polygon normalizedPointWithIndex:3];
 
-  dispatch_async(dispatch_get_main_queue(), ^{
-    self.polygonLayer.path = [result.polygon bezierPathForSize:self.previewLayer.bounds.size].CGPath;
-  });
+  SBSDKPolygon *adjustedPolygon = [[SBSDKPolygon alloc]
+    initWithNormalizedPointA: CGPointMake(pointA.x - 0.02, pointA.y - 0.02)
+    pointB: CGPointMake(pointB.x + 0.02, pointB.y - 0.02)
+    pointC: CGPointMake(pointC.x + 0.02, pointC.y + 0.02)
+    pointD: CGPointMake(pointD.x - 0.02, pointD.y + 0.02)
+  ];
 
   switch(result.status) {
     case SBSDKDocumentDetectionStatusOK:
-      NSLog(@"Ok");
-      self.detectingPolygon = result.polygon;
-      [self transitionToB];
-      break;
     case SBSDKDocumentDetectionStatusOK_SmallSize:
-      NSLog(@"Ok Small");
-      self.detectingPolygon = result.polygon;
-      [self transitionToB];
+    case SBSDKDocumentDetectionStatusOK_BadAspectRatio: {
+      if (self.detectingPolygon != nil && [self.detectingPolygon standardDeviationToPolygon:adjustedPolygon] < 0.1) {
+        self.detectedCount++;
+      } else {
+        self.detectedCount = 0;
+        self.detectingPolygon = adjustedPolygon;
+      }
+      if (self.detectedCount > 10) {
+        [self transitionToB];
+        self.detectedCount = 0;
+      }
+    }
       break;
     case SBSDKDocumentDetectionStatusOK_BadAngles:
-      NSLog(@"Ok Bad Angle");
-      break;
-    case SBSDKDocumentDetectionStatusOK_BadAspectRatio:
-      NSLog(@"Ok Bad Aspect Ratio");
-      self.detectingPolygon = result.polygon;
-      [self transitionToB];
-      break;
     case SBSDKDocumentDetectionStatusError_NothingDetected:
-      NSLog(@"Error nothing detected");
-      break;
     case SBSDKDocumentDetectionStatusError_Brightness:
-      NSLog(@"Error brightness");
-      break;
     case SBSDKDocumentDetectionStatusError_Noise:
-      NSLog(@"Error noise");
+      self.detectedCount = 0;
+      break;
+    default:
       break;
   }
+
+  dispatch_async(dispatch_get_main_queue(), ^{
+    self.polygonLayer.path = [self.detectingPolygon bezierPathForSize:self.previewLayer.bounds.size].CGPath;
+  });
 }
 
 - (void)transitionToA {
@@ -346,10 +354,9 @@ void getPoints(void *info, const CGPathElement *element)
     self.leftEdgeView.hidden = true;
     self.rightEdgeView.hidden = true;
     self.bottomEdgeView.hidden = true;
-  });
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
     self.detectionEnabled = YES;
   });
+
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
     if (self.detectionEnabled) {
       self.takePhotoButton.hidden = false;
