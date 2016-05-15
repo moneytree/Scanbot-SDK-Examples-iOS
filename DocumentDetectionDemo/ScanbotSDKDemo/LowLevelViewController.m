@@ -17,7 +17,10 @@
 @property (strong, nonatomic) SBSDKDocumentDetector *detector;
 @property (strong, nonatomic) SBSDKImageStorage *imageStorage;
 @property (strong, nonatomic) SBSDKProgress *currentProgress;
-@property (nonatomic, strong) CAShapeLayer *polygonLayer;
+
+@property (nonatomic, strong) SBSDKPolygonLayer *detectingPolygonLayer;
+@property (nonatomic, strong) CAShapeLayer *editingPolygonLayer;
+
 @property (nonatomic, strong) AVCaptureVideoPreviewLayer *previewLayer;
 @property (nonatomic, strong) AVCaptureSession *session;
 @property (nonatomic, strong) AVCaptureVideoDataOutput *videoDataOutput;
@@ -63,14 +66,24 @@ void getPoints(void *info, const CGPathElement *element)
 
 @implementation LowLevelViewController
 
-- (CAShapeLayer *)polygonLayer {
-  if (!_polygonLayer) {
+- (SBSDKPolygonLayer *)detectingPolygonLayer {
+  if (!_detectingPolygonLayer) {
     UIColor *color = [UIColor colorWithRed:0.0f green:0.5f blue:1.0f alpha:1.0f];
-    _polygonLayer = [[CAShapeLayer alloc] init];
-    _polygonLayer.strokeColor = color.CGColor;
-    _polygonLayer.fillColor = [UIColor colorWithRed:0.0f green:0.55f blue:1.0f alpha:0.5f].CGColor;
+    _detectingPolygonLayer = [[SBSDKPolygonLayer alloc] init];
+    _detectingPolygonLayer.strokeColor = color.CGColor;
+    _detectingPolygonLayer.fillColor = [UIColor colorWithRed:0.0f green:0.55f blue:1.0f alpha:0.5f].CGColor;
   }
-  return _polygonLayer;
+  return _detectingPolygonLayer;
+}
+
+- (CAShapeLayer *)editingPolygonLayer {
+  if (!_editingPolygonLayer) {
+    UIColor *color = [UIColor colorWithRed:0.0f green:0.5f blue:1.0f alpha:1.0f];
+    _editingPolygonLayer = [[CAShapeLayer alloc] init];
+    _editingPolygonLayer.strokeColor = color.CGColor;
+    _editingPolygonLayer.fillColor = [UIColor colorWithRed:0.0f green:0.55f blue:1.0f alpha:0.5f].CGColor;
+  }
+  return _editingPolygonLayer;
 }
 
 - (void)initializeCameraSession {
@@ -108,7 +121,8 @@ void getPoints(void *info, const CGPathElement *element)
   self.previewLayer = [[AVCaptureVideoPreviewLayer alloc] initWithSession:self.session];
   self.previewLayer.videoGravity = AVLayerVideoGravityResize;
   [self.view.layer addSublayer:self.previewLayer];
-  [self.view.layer addSublayer:self.polygonLayer];
+  [self.view.layer addSublayer:self.detectingPolygonLayer];
+  [self.view.layer addSublayer:self.editingPolygonLayer];
 
   self.topLeftCornerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 44, 44)];
   self.topLeftCornerView.backgroundColor = [UIColor redColor];
@@ -255,7 +269,8 @@ void getPoints(void *info, const CGPathElement *element)
   [super viewDidLayoutSubviews];
 
   self.previewLayer.frame = self.view.bounds;
-  self.polygonLayer.frame = self.view.bounds;
+  self.detectingPolygonLayer.frame = self.view.bounds;
+  self.editingPolygonLayer.frame = self.view.bounds;
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -309,16 +324,23 @@ void getPoints(void *info, const CGPathElement *element)
     case SBSDKDocumentDetectionStatusOK:
     case SBSDKDocumentDetectionStatusOK_SmallSize:
     case SBSDKDocumentDetectionStatusOK_BadAspectRatio: {
-      if (self.detectingPolygon != nil && [self.detectingPolygon standardDeviationToPolygon:adjustedPolygon] < 0.1) {
+      if (self.detectingPolygon != nil && [self.detectingPolygon standardDeviationToPolygon:adjustedPolygon] < 0.025) {
         self.detectedCount++;
       } else {
         self.detectedCount = 0;
-        self.detectingPolygon = adjustedPolygon;
       }
-      if (self.detectedCount > 10) {
+      self.detectingPolygon = adjustedPolygon;
+
+      dispatch_async(dispatch_get_main_queue(), ^{
+        self.detectingPolygonLayer.path = [self.detectingPolygon bezierPathForSize:self.previewLayer.bounds.size].CGPath;
+      });
+
+      if (self.detectedCount > 5) {
         [self transitionToB];
         self.detectedCount = 0;
+        self.detectionEnabled = NO;
       }
+
     }
       break;
     case SBSDKDocumentDetectionStatusOK_BadAngles:
@@ -326,18 +348,16 @@ void getPoints(void *info, const CGPathElement *element)
     case SBSDKDocumentDetectionStatusError_Brightness:
     case SBSDKDocumentDetectionStatusError_Noise:
       self.detectedCount = 0;
+      self.detectingPolygon = nil;
       break;
     default:
       break;
   }
-
-  dispatch_async(dispatch_get_main_queue(), ^{
-    self.polygonLayer.path = [self.detectingPolygon bezierPathForSize:self.previewLayer.bounds.size].CGPath;
-  });
 }
 
 - (void)transitionToA {
-  self.polygonLayer.path = nil;
+  self.detectingPolygonLayer.path = nil;
+  self.editingPolygonLayer.path = nil;
   self.currentImage = nil;
   self.previewLayer.connection.enabled = YES;
   self.detectingPolygon = nil;
@@ -376,6 +396,8 @@ void getPoints(void *info, const CGPathElement *element)
     self.retryButton.hidden = false;
     self.saveButton.hidden = false;
     self.scanAnotherButton.hidden = false;
+    self.editingPolygonLayer.path = self.detectingPolygonLayer.path;
+    self.detectingPolygonLayer.path = nil;
   });
 }
 
@@ -536,7 +558,7 @@ void getPoints(void *info, const CGPathElement *element)
     pointD: pointD
   ];
 
-  self.polygonLayer.path = [polygon bezierPathForSize:self.previewLayer.bounds.size].CGPath;
+  self.editingPolygonLayer.path = [polygon bezierPathForSize:self.previewLayer.bounds.size].CGPath;
   [self showCornerControls:polygon];
   [self showEdgeControls:polygon];
 
@@ -594,7 +616,7 @@ void getPoints(void *info, const CGPathElement *element)
     pointC: pointC
     pointD: pointD
   ];
-  self.polygonLayer.path = [polygon bezierPathForSize:self.previewLayer.bounds.size].CGPath;
+  self.editingPolygonLayer.path = [polygon bezierPathForSize:self.previewLayer.bounds.size].CGPath;
   [self showCornerControls:polygon];
   [self showEdgeControls:polygon];
 
