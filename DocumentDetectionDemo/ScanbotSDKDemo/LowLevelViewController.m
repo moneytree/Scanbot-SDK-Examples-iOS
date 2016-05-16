@@ -46,22 +46,23 @@
 @property (nonatomic, strong) SBSDKPolygon *editingPolygon;
 @property (nonatomic) NSUInteger detectedCount;
 
+@property (nonatomic, strong) CIContext *context;
+
 @end
 
-void getPoints(void *info, const CGPathElement *element)
-{
-    NSMutableArray *bezierPoints = (__bridge NSMutableArray *)info;
-    CGPathElementType type = element->type;
-    CGPoint *points = element->points;
-    if (type != kCGPathElementCloseSubpath) {
-      if ((type == kCGPathElementAddLineToPoint) || (type == kCGPathElementMoveToPoint)) {
-        [bezierPoints addObject:[NSValue valueWithCGPoint:points[0]]];
-      } else if (type == kCGPathElementAddQuadCurveToPoint) {
-        [bezierPoints addObject:[NSValue valueWithCGPoint:points[1]]];
-      } else if (type == kCGPathElementAddCurveToPoint) {
-        [bezierPoints addObject:[NSValue valueWithCGPoint:points[2]]];
-      }
+void getPoints(void *info, const CGPathElement *element) {
+  NSMutableArray *bezierPoints = (__bridge NSMutableArray *)info;
+  CGPathElementType type = element->type;
+  CGPoint *points = element->points;
+  if (type != kCGPathElementCloseSubpath) {
+    if ((type == kCGPathElementAddLineToPoint) || (type == kCGPathElementMoveToPoint)) {
+      [bezierPoints addObject:[NSValue valueWithCGPoint:points[0]]];
+    } else if (type == kCGPathElementAddQuadCurveToPoint) {
+      [bezierPoints addObject:[NSValue valueWithCGPoint:points[1]]];
+    } else if (type == kCGPathElementAddCurveToPoint) {
+      [bezierPoints addObject:[NSValue valueWithCGPoint:points[2]]];
     }
+  }
 }
 
 @implementation LowLevelViewController
@@ -189,6 +190,8 @@ void getPoints(void *info, const CGPathElement *element)
   [self.view addSubview:self.leftEdgeView];
   [self.view addSubview:self.rightEdgeView];
   [self.view addSubview:self.bottomEdgeView];
+
+  self.context = [CIContext contextWithOptions:nil];
 }
 
 - (void)initializeImageStorage {
@@ -251,7 +254,6 @@ void getPoints(void *info, const CGPathElement *element)
   self.scanAnotherButton.hidden = true;
 }
 
-
 - (void)viewDidLoad {
   [super viewDidLoad];
   self.view.backgroundColor = [UIColor blackColor];
@@ -294,20 +296,60 @@ void getPoints(void *info, const CGPathElement *element)
 
   CVImageBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
   CIImage *cameraImage = [CIImage imageWithCVPixelBuffer:pixelBuffer];
+  UIImage* image = [self applyFilters:cameraImage rect:CVImageBufferGetCleanRect(pixelBuffer)];
 
-  CIFilter *filter = [CIFilter filterWithName:@"YUCISurfaceBlur"];
-  [filter setValue:@(3.0) forKey:@"inputRadius"];
-  [filter setValue:@(5.0) forKey:@"inputThreshold"];
-  [filter setValue:cameraImage forKey:kCIInputImageKey];
+  [self detectImage:image completionHandler:^(SBSDKPolygon* polygon){
+    dispatch_async(dispatch_get_main_queue(), ^{
+      if (self.detectingPolygon != nil && [self.detectingPolygon standardDeviationToPolygon:polygon] < 0.1) {
+        self.detectedCount++;
+      } else {
+        self.detectedCount = 0;
+      }
 
-  UIImage *image = [UIImage imageWithCIImage:cameraImage];
+      self.detectingPolygon = polygon;
+      self.detectingPolygonLayer.path = [polygon bezierPathForSize:self.previewLayer.bounds.size].CGPath;
 
+      if (self.detectedCount >= 3) {
+        self.detectionEnabled = NO;
+        self.detectedCount = 0;
+        [self captureImage];
+      }
+    });
+  }];
+}
+
+- (UIImage *)applyFilters:(CIImage*)coreImageImage rect:(CGRect)rect {
+  CIFilter *surfaceBlurFilter = [CIFilter filterWithName:@"YUCISurfaceBlur"];
+  [surfaceBlurFilter setValue:coreImageImage forKey:kCIInputImageKey];
+  [surfaceBlurFilter setValue:@(3.0) forKey:@"inputRadius"];
+  [surfaceBlurFilter setValue:@(5.0) forKey:@"inputThreshold"];
+
+  CIFilter *gaussianFilter = [CIFilter filterWithName:@"CIGaussianBlur"];
+  [gaussianFilter setValue:surfaceBlurFilter.outputImage forKey:kCIInputImageKey];
+  [gaussianFilter setValue:[NSNumber numberWithFloat:1.0f] forKey:@"inputRadius"];
+
+  CGImageRef imageRef = [self.context
+    createCGImage: gaussianFilter.outputImage
+    fromRect: rect
+  ];
+  UIImage *resultImage = [UIImage imageWithCGImage:imageRef];
+  CGImageRelease(imageRef);
+  return resultImage;
+}
+
+- (void)detectImage:(UIImage *)image completionHandler:(void(^)(SBSDKPolygon*))completionHandler {
   SBSDKDocumentDetectorResult *result = [self.detector
     detectDocumentPolygonOnImage:image
     visibleImageRect:CGRectZero
     smoothingEnabled:NO
     useLiveDetectionParameters:YES
   ];
+
+  if (result.polygon == nil) {
+    completionHandler(nil);
+    return;
+  }
+
   CGPoint pointA = [result.polygon normalizedPointWithIndex:0];
   CGPoint pointB = [result.polygon normalizedPointWithIndex:1];
   CGPoint pointC = [result.polygon normalizedPointWithIndex:2];
@@ -324,23 +366,7 @@ void getPoints(void *info, const CGPathElement *element)
     case SBSDKDocumentDetectionStatusOK:
     case SBSDKDocumentDetectionStatusOK_SmallSize:
     case SBSDKDocumentDetectionStatusOK_BadAspectRatio: {
-      if (self.detectingPolygon != nil && [self.detectingPolygon standardDeviationToPolygon:adjustedPolygon] < 0.025) {
-        self.detectedCount++;
-      } else {
-        self.detectedCount = 0;
-      }
-      self.detectingPolygon = adjustedPolygon;
-
-      dispatch_async(dispatch_get_main_queue(), ^{
-        self.detectingPolygonLayer.path = [self.detectingPolygon bezierPathForSize:self.previewLayer.bounds.size].CGPath;
-      });
-
-      if (self.detectedCount > 5) {
-        [self transitionToB];
-        self.detectedCount = 0;
-        self.detectionEnabled = NO;
-      }
-
+      completionHandler(adjustedPolygon);
     }
       break;
     case SBSDKDocumentDetectionStatusOK_BadAngles:
@@ -386,9 +412,15 @@ void getPoints(void *info, const CGPathElement *element)
 
 - (void)transitionToB {
   self.detectionEnabled = NO;
-  self.previewLayer.connection.enabled = NO;
   self.editingPolygon = self.detectingPolygon;
-  [self captureImage];
+  if (self.editingPolygon == nil) {
+    self.editingPolygon = [[SBSDKPolygon alloc]
+      initWithNormalizedPointA: CGPointMake(0.4, 0.4)
+      pointB: CGPointMake(0.6, 0.4)
+      pointC: CGPointMake(0.4, 0.6)
+      pointD: CGPointMake(0.6, 0.6)
+    ];
+  }
   dispatch_async(dispatch_get_main_queue(), ^{
     [self showCornerControls:self.editingPolygon];
     [self showEdgeControls:self.editingPolygon];
@@ -396,7 +428,7 @@ void getPoints(void *info, const CGPathElement *element)
     self.retryButton.hidden = false;
     self.saveButton.hidden = false;
     self.scanAnotherButton.hidden = false;
-    self.editingPolygonLayer.path = self.detectingPolygonLayer.path;
+    self.editingPolygonLayer.path = [self.editingPolygon bezierPathForSize:self.previewLayer.bounds.size].CGPath;
     self.detectingPolygonLayer.path = nil;
   });
 }
@@ -417,10 +449,10 @@ void getPoints(void *info, const CGPathElement *element)
 
   for (AVCaptureConnection *connection in self.stillImageOutput.connections) {
     for (AVCaptureInputPort *port in [connection inputPorts]) {
-        if ([[port mediaType] isEqual:AVMediaTypeVideo] ) {
-          videoConnection = connection;
-          break;
-        }
+      if ([[port mediaType] isEqual:AVMediaTypeVideo] ) {
+        videoConnection = connection;
+        break;
+      }
     }
     if (videoConnection) { break; }
   }
@@ -429,12 +461,16 @@ void getPoints(void *info, const CGPathElement *element)
     return;
   }
 
+  self.previewLayer.connection.enabled = NO;
   [self.stillImageOutput
    captureStillImageAsynchronouslyFromConnection:videoConnection
    completionHandler:^(CMSampleBufferRef sampleBuffer, NSError *error) {
     NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:sampleBuffer];
     UIImage *image = [[UIImage alloc] initWithData:imageData];
     self.currentImage = image;
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [self transitionToB];
+    });
   }];
 }
 
@@ -462,7 +498,7 @@ void getPoints(void *info, const CGPathElement *element)
 }
 
 - (void)takePhotoButtonPressed:(UIButton*)button {
-  [self transitionToB];
+  [self captureImage];
 }
 
 - (void)retryButtonPressed:(UIButton*)button {
@@ -480,6 +516,10 @@ void getPoints(void *info, const CGPathElement *element)
 }
 
 - (void)showCornerControls:(SBSDKPolygon*)polygon {
+  if (polygon == nil) {
+    return;
+  }
+
   NSMutableArray *points = [NSMutableArray array];
   CGPathApply(
     [polygon bezierPathForSize:self.previewLayer.bounds.size].CGPath,
